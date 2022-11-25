@@ -9,6 +9,11 @@
 # include <fcntl.h>
 # include <utime.h>
 
+
+# define bufferSize 1024		// 缓冲区大小
+# define nameLength	128			// 文件(文件夹)路径名长度
+
+// 递归函数，用以进行区别文件类型
 void MyCopy(const char *src, const char *dest);
 // 软连接文件复制
 void copyLinkFile(const char *src, const char *dest);
@@ -62,7 +67,8 @@ void MyCopy(const char *src, const char *dest){
 	DIR *dir = NULL;                        // 目录文件指针
 	struct dirent *entry = NULL;            // 目录下的子文件(子目录)指针
 	struct stat filestat;                   // filestat 获取当前目录的文件属性
-	char child_src_path[128], child_dest_path[128];      // 子文件(文件夹)路径名称
+	 // 子文件(文件夹)路径名称
+	char child_src_path[nameLength], child_dest_path[nameLength];     
 	
 	if((dir = opendir(src))==NULL){         // 获取当前目录文件的指针
 		printf("file directory %s open error.\n", src);
@@ -101,12 +107,12 @@ void copyLinkFile(const char *src, const char *dest){
 	printf("LinkFile: %s，正在拷贝...\n",src);
 	struct stat filestat;           // filestat 用于软连接文件各项属性信息
 	struct timeval tv[2];           // tv 为设置软链接文件访问与修改时间的数据结构
-	char path[1024];                // 存储软连接文件的链接信息，用于新建软链接文件
-	memset(path, 0, sizeof(path));  // 缓冲区清零
+	char path[nameLength];          // 存储软连接文件的链接信息，用于新建软链接文件
+	memset(path, 0, nameLength);  	// 缓冲区清零
 	// 获取 源文件的链接属性信息
 	lstat(src, &filestat);
 	// 读取符号链接文件本身的信息到缓冲区 buffer 中;执行成功则传符号连接所指的文件路径字符串
-	readlink(src, path, 1024);
+	readlink(src, path, nameLength);
 	// symlink() 对于已有的文件 path 建立一个名为 dest 的符号连接。
 	if (symlink(path, dest) == -1) {   // 成功返回0 失败返回-1
 		printf("create link: %s error!\n", src);
@@ -129,10 +135,10 @@ void copyFile(const char *src, const char *dest){
 	struct utimbuf utb;             // 访问与修改时间结构体
 	int srcFd;                      // 源文件描述符
 	int destFd;                     // 目标文件描述符
-	int size = 0;                   // 每次从文件中读取的数据量
-	char buffer[1024];              // 缓冲区，用于存放文件里的数据
+	int size = 0;                   // 实际每次循环从文件中读取的数据量
+	char buffer[bufferSize]; 		// 缓冲区，用于存放文件里的数据
 	
-	memset(buffer, 0, sizeof(buffer));  // 初始化读文件缓冲区
+	memset(buffer, 0, bufferSize);  // 初始化读文件缓冲区
 	stat(src, &filestat);           // 获取源文件的属性
 	
 	// 赋值源文件的访问与修改时间
@@ -152,7 +158,7 @@ void copyFile(const char *src, const char *dest){
 	}
 
 	// 从源文件中读取内容到缓冲区buffer中，read返回实际读出的字节数,<=0则文件读取完毕
-	while ((size = read(srcFd, buffer, 1024)) > 0) {
+	while ((size = read(srcFd, buffer, bufferSize)) > 0) {
         	// 将缓冲区的内容写入目标文件中
 		write(destFd, buffer, size);
 	}
