@@ -18,12 +18,12 @@ void copyFile(const char *src, const char *dest);
 void copyDirectory(const char *src, const char *dest);
 
 int main(int argc, char** argv){
-	struct stat dirstat;	// stat用于存储文件各项属性信息
-	struct utimbuf utb;		// 更新新建文件夹时间的结构体
+	struct stat dirstat;	// dirstat 用于存储目录文件的属性信息
+	struct utimbuf utb;		// 源目录访问与修改时间
 	DIR *dirSrc = NULL;		// 源文件目录指针
-	DIR *dirDest = NULL;        // 目标文件目录指针
+	DIR *dirDest = NULL;    // 目标文件目录指针
 
-	if (argc != 3) {            // 若命令行参数不为 3 
+	if (argc != 3) {            // 若命令行参数不为 3 ， 输入格式错误
 		printf("argc error!\n");
 		exit(-1);
 	}
@@ -34,10 +34,10 @@ int main(int argc, char** argv){
 	}
 	if((dirDest = opendir(argv[2])) == NULL){   // 若目标目录不存在
 		stat(argv[1], &dirstat);                // 得到源目录的文件属性
-		utb.actime = dirstat.st_atime;          // 赋值源目录的访问时间和修改时间
+		utb.actime = dirstat.st_atime;          
 		utb.modtime = dirstat.st_mtime;
-		//创建目录
-		if (mkdir(argv[2], dirstat.st_mode) < 0) {  // mkdir 创建目标dest目录，失败则返回-1
+		// 使用mkdir()创建目录, 失败则返回-1
+		if (mkdir(argv[2], dirstat.st_mode) < 0) {
 			printf("create dir: %s error!\n", argv[2]);
 			exit(-1);
 		}
@@ -52,7 +52,7 @@ int main(int argc, char** argv){
 	utime(argv[2], &utb);
 	// 文件复制成功
 	printf("copy finished!\n");
-	// 关闭目录文件指针
+	// 关闭源目录文件与目标目录文件指针
 	closedir(dirSrc);
 	closedir(dirDest);
 	return 0;
@@ -60,9 +60,9 @@ int main(int argc, char** argv){
 
 void MyCopy(const char *src, const char *dest){
 	DIR *dir = NULL;                        // 目录文件指针
-	struct dirent *entry = NULL;            // 指向下一个目录指针
+	struct dirent *entry = NULL;            // 目录下的子文件(子目录)指针
 	struct stat filestat;                   // filestat 获取当前目录的文件属性
-	char child_src_path[128], child_dest_path[128];      // 子文件/文件夹路径名称
+	char child_src_path[128], child_dest_path[128];      // 子文件(文件夹)路径名称
 	
 	if((dir = opendir(src))==NULL){         // 获取当前目录文件的指针
 		printf("file directory %s open error.\n", src);
@@ -73,9 +73,9 @@ void MyCopy(const char *src, const char *dest){
 		// 忽略 ./ 当前文件夹 ../ 父级文件夹
 		if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
 			// 路径名拼接 基路径/文件名（文件夹名）
-			strcpy(child_src_path, src);            // 赋值子文件/文件夹的基路径
+			strcpy(child_src_path, src);             // 赋值子文件/文件夹的基路径
 			strcpy(child_dest_path, dest);
-			strcat(child_src_path, "/");              // 加上文件连接符 /
+			strcat(child_src_path, "/");             // 加上文件连接符 /
 			strcat(child_dest_path, "/");
 			strcat(child_src_path, entry->d_name);   // 加上文件名(文件夹名)
 			strcat(child_dest_path, entry->d_name);
@@ -125,7 +125,7 @@ void copyLinkFile(const char *src, const char *dest){
 }
 void copyFile(const char *src, const char *dest){
 	printf("File: %s，正在拷贝...\n",src);
-	struct stat filestat;           // stat用于存储文件各项属性信息
+	struct stat filestat;           // filestat用于存储文件各项属性信息
 	struct utimbuf utb;             // 访问与修改时间结构体
 	int srcFd;                      // 源文件描述符
 	int destFd;                     // 目标文件描述符
@@ -151,7 +151,7 @@ void copyFile(const char *src, const char *dest){
 		return ;
 	}
 
-	// 虚幻从 源文件中读取内容到缓冲区buffer中
+	// 从源文件中读取内容到缓冲区buffer中，read返回实际读出的字节数,<=0则文件读取完毕
 	while ((size = read(srcFd, buffer, 1024)) > 0) {
         	// 将缓冲区的内容写入目标文件中
 		write(destFd, buffer, size);
@@ -164,9 +164,9 @@ void copyFile(const char *src, const char *dest){
 }
 void copyDirectory(const char *src, const char *dest){
 	printf("Director: %s，正在拷贝...\n",src);
-	struct stat filestat;
-	struct utimbuf utb;                     
-	// 获取子目录文件的属性
+	struct stat filestat;       // 源目录文件的属性
+	struct utimbuf utb;         // 源目录文件的访问时间与修改时间   
+	// 获取源目录文件的属性
 	stat(src, &filestat);
 	// 创建新的目录文件 child_dest_path
 	mkdir(dest, filestat.st_mode);
