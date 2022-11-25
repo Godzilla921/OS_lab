@@ -48,7 +48,8 @@ int main(int argc, char** argv){
 	}
 	// 开始递归复制 argv[1] 路径下的所有文件
 	MyCopy(argv[1], argv[2]);
-	utime(argv[2], &utb);                   // 修改 目录 argv[2] 的访问与修改时间
+	 // 修改 目录 argv[2] 的访问与修改时间
+	utime(argv[2], &utb);
 	// 文件复制成功
 	printf("copy finished!\n");
 	// 关闭目录文件指针
@@ -60,10 +61,9 @@ int main(int argc, char** argv){
 void MyCopy(const char *src, const char *dest){
 	DIR *dir = NULL;                        // 目录文件指针
 	struct dirent *entry = NULL;            // 指向下一个目录指针
-	struct stat dirstat;                    // dirstat 获取当前目录的文件属性
-	struct stat childstat;                  // childstat 获取 dirstat 文件目录下 子文件/目录的文件属性
-	struct utimbuf utb;                     // 修改
+	struct stat filestat;                   // filestat 获取当前目录的文件属性
 	char child_src_path[128], child_dest_path[128];      // 子文件/文件夹路径名称
+	
 	if((dir = opendir(src))==NULL){         // 获取当前目录文件的指针
 		printf("file directory %s open error.\n", src);
 		return ;
@@ -81,32 +81,15 @@ void MyCopy(const char *src, const char *dest){
 			strcat(child_dest_path, entry->d_name);
 			// 子文件 可能有三种情况: 目录、软连接文件、文件
 			// 使用lstat 获取文件的属性可以满足三种类型的文件，而stat()无法获得软连接文件的属性
-			lstat(child_src_path, &dirstat);            
+			lstat(child_src_path, &filestat);            
 		// 根据子不同的文件类型进行不同的处理
-		if(S_ISLNK(dirstat.st_mode)){      
-			// 子文件为 软连接文件
-			printf("LinkFile: %s，正在拷贝...\n",child_src_path);
-			// 进行连接复制
+		if(S_ISLNK(filestat.st_mode)){		// 子文件为 软连接文件
+			// 进行软连接复制
 			copyLinkFile(child_src_path, child_dest_path);
-		}else if(S_ISDIR(dirstat.st_mode)){
-			// 子文件为目录文件，进行目录复制，同时递归复制该目录下的所有文件及文件夹
-			printf("Director: %s，正在拷贝...\n",child_src_path);
-			// 获取子目录文件的属性
-			stat(child_src_path, &childstat);
-			// 创建新的目录文件 child_dest_path
-			mkdir(child_dest_path, childstat.st_mode);
-			// 复制目录文件的 访问与修改时间
-			utb.actime = childstat.st_atime;
-			utb.modtime = childstat.st_mtime;
-			// 递归进入该目录，进行子文件与子文件夹的复制
-			MyCopy(child_src_path, child_dest_path);
-			// 更新新建目录文件的时间
-			utime(child_dest_path, &utb);
-			// 复制成功
-			printf("Directory: %s，拷贝完成\n",child_src_path);
-		}else{ 
-			// 该子文件为软连接文件
-			printf("File: %s，正在拷贝...\n",child_src_path);
+		}else if(S_ISDIR(filestat.st_mode)){	// 子文件为目录文件，进行目录复制，同时递归复制该目录下的所有文件及文件夹
+			// 进行目录复制
+			copyDirectory(child_src_path, child_dest_path);
+		}else{					// 该子文件为文件
 			// 进行软连接文件复制
 			copyFile(child_src_path, child_dest_path);
         	}
@@ -115,6 +98,7 @@ void MyCopy(const char *src, const char *dest){
 	closedir(dir);
 }
 void copyLinkFile(const char *src, const char *dest){
+	printf("LinkFile: %s，正在拷贝...\n",src);
 	struct stat filestat;           // filestat 用于软连接文件各项属性信息
 	struct timeval tv[2];           // tv 为设置软链接文件访问与修改时间的数据结构
 	char path[1024];                // 存储软连接文件的链接信息，用于新建软链接文件
@@ -123,8 +107,6 @@ void copyLinkFile(const char *src, const char *dest){
 	lstat(src, &filestat);
 	// 读取符号链接文件本身的信息到缓冲区 buffer 中;执行成功则传符号连接所指的文件路径字符串
 	readlink(src, path, 1024);
-	printf("old linkfile: %s\n", src);
-	printf("linkfile: %s\n", path);
 	// symlink() 对于已有的文件 path 建立一个名为 dest 的符号连接。
 	if (symlink(path, dest) == -1) {   // 成功返回0 失败返回-1
 		printf("create link: %s error!\n", src);
@@ -142,6 +124,7 @@ void copyLinkFile(const char *src, const char *dest){
 	lutimes(dest, tv);
 }
 void copyFile(const char *src, const char *dest){
+	printf("File: %s，正在拷贝...\n",src);
 	struct stat filestat;           // stat用于存储文件各项属性信息
 	struct utimbuf utb;             // 访问与修改时间结构体
 	int srcFd;                      // 源文件描述符
@@ -178,4 +161,22 @@ void copyFile(const char *src, const char *dest){
 	// 关闭源文件与目标文件
 	close(srcFd);
 	close(destFd);
+}
+void copyDirectory(const char *src, const char *dest){
+	printf("Director: %s，正在拷贝...\n",src);
+	struct stat filestat;
+	struct utimbuf utb;                     
+	// 获取子目录文件的属性
+	stat(src, &filestat);
+	// 创建新的目录文件 child_dest_path
+	mkdir(dest, filestat.st_mode);
+	// 复制目录文件的 访问与修改时间
+	utb.actime = filestat.st_atime;
+	utb.modtime = filestat.st_mtime;
+	// 递归进入该目录，进行子文件与子文件夹的复制
+	MyCopy(src, dest);
+	// 更新新建目录文件的时间
+	utime(dest, &utb);
+	// 复制成功
+	printf("Directory: %s，拷贝完成\n",src);
 }
