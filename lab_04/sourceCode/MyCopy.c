@@ -10,7 +10,7 @@
 # include <utime.h>
 # include <errno.h>
 
-# define bufferSize 1024		// 缓冲区大小
+# define bufferSize	1024		// 缓冲区大小
 # define nameLength	128		// 文件(文件夹)路径名长度
 
 // 递归函数，用以进行区别文件类型
@@ -22,10 +22,6 @@ void copyLinkFile(const char *src, const char *dest);
 // 目录复制
 void copyDirectory(const char *src, const char *dest);
 
-int file_directory_exist(const char *path)
-{
-    return (access(path, F_OK) == 0);
-}
 int main(int argc, char** argv){
 	if (argc != 3) {			// 若命令行参数不为 3 ， 输入格式错误
 		printf("argc error!\n");
@@ -36,8 +32,9 @@ int main(int argc, char** argv){
 		printf("get file: %s information error.\n", argv[1]);
 		exit(-1);
 	}
+	// 判断目标文件/文件夹是否存在
 	if(!access(argv[2], F_OK)){
-		printf("directory %s is existed!\n", argv[2]);
+		printf("directory/file %s is existed!\n", argv[2]);
 		exit(-1);
 	}
 	if(S_ISDIR(srcStat.st_mode)){
@@ -71,7 +68,7 @@ void MyCopy(const char *src, const char *dest){
 		// 路径名拼接 基路径/文件名（文件夹名）
 		strcpy(child_src_path, src);             // 赋值子文件/文件夹的基路径
 		strcpy(child_dest_path, dest);
-		strcat(child_src_path, "/");             // 加上文件连接符 /
+		strcat(child_src_path, "/");             // 加上文件连接符 '/'
 		strcat(child_dest_path, "/");
 		strcat(child_src_path, entry->d_name);   // 加上文件名(文件夹名)
 		strcat(child_dest_path, entry->d_name);
@@ -80,7 +77,8 @@ void MyCopy(const char *src, const char *dest){
 		if(lstat(child_src_path, &filestat) < 0){
 			printf("get linkFile: %s information error.\n", child_src_path);
 			exit(-1);
-		}           
+		}
+		// 判断目标文件/文件夹是否存在
 		if(!access(child_dest_path, F_OK)){
 			printf("directory %s is existed!\n", child_src_path);
 			exit(-1);
